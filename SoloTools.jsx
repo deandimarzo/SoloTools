@@ -31,8 +31,17 @@
         var lyricInput = lyricInputGroup.add("edittext", [0, 0, 400, 200], "", { multiline: true, scrollable: true });
 
         var addMarkerBtn = leftCol.add("button", undefined, "Add Marker");
+        var labelMarkersBtn = leftCol.add("button", undefined, "Preview Lyrics");
         var generateBtn = leftCol.add("button", undefined, "Generate Text Layers from Markers");
-        var labelMarkersBtn = leftCol.add("button", undefined, "Preview With Marker Labels");
+
+        // -- Status Group --
+        var statusGroup = leftCol.add("group");
+        statusGroup.orientation = "column";
+        statusGroup.alignChildren = "left";
+
+        var markerCountText = statusGroup.add("statictext", undefined, "Markers: 0");
+        var wordCountText = statusGroup.add("statictext", undefined, "Words: 0");
+        var currentWordText = statusGroup.add("statictext", [0, 0, 200, 20], "Current Word: -");
 
         // === Right Column: Animator Settings ===
         var rightCol = mainGroup.add("panel", undefined, "Animator Properties");
@@ -93,6 +102,41 @@
             var time = comp.time;
             markers.setValueAtTime(time, new MarkerValue(""));
         };
+
+        // -- UPDATE STATUS FUNCTION --
+        function updateWordStatus() {
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                markerCountText.text = "Markers: -";
+                wordCountText.text = "Words: -";
+                currentWordText.text = "Latest Word: -";
+                return;
+            }
+
+            var markers = comp.markerProperty;
+            var markerCount = markers.numKeys;
+            markerCountText.text = "Markers: " + markerCount;
+
+            var text = lyricInput.text;
+            var words = [];
+            if (text && typeof text === "string") {
+                var split = text.replace(/\n/g, " ").split(/\s+/);
+                for (var i = 0; i < split.length; i++) {
+                    if (split[i] !== "") words.push(split[i]);
+                }
+            }
+            wordCountText.text = "Words: " + words.length;
+
+            // Show last labeled word
+            var word = "-";
+            if (markerCount > 0) {
+                var markerVal = markers.keyValue(markerCount);
+                if (markerVal && markerVal.comment && typeof markerVal.comment === "string") {
+                    word = markerVal.comment;
+                }
+            }
+            currentWordText.text = "Latest Word: " + word;
+        }
 
         // --- MAIN LAYER GENERATION CODE ---
         generateBtn.onClick = function () {
@@ -237,7 +281,7 @@
                 if (advanced) {
                     advanced.property("ADBE Text Range Type2").setValue(3); // Words
                     advanced.property("ADBE Text Range Units").setValue(2); // Index
-                    
+
                     advanced.property("ADBE Text Selector Smoothness").setValue(parseFloat(smoothInput.text) || 0);
                     advanced.property("ADBE Text Levels Max Ease").setValue(parseFloat(easeHighInput.text) || 0);
                     advanced.property("ADBE Text Levels Min Ease").setValue(parseFloat(easeLowInput.text) || 0);
@@ -307,12 +351,14 @@
                 }
             }
 
+            updateWordStatus();
+
             app.endUndoGroup();
         };
 
         labelMarkersBtn.onClick = function () {
             app.beginUndoGroup("Label Markers with Words");
-
+            // updateWordStatus();
             var comp = app.project.activeItem;
             if (!comp || !(comp instanceof CompItem)) {
                 alert("Please select an active composition.");
@@ -354,14 +400,16 @@
             } else if (flatWords.length > totalMarkers) {
                 alert("Not enough markers for all words. Only the first " + totalMarkers + " words were used.");
             }
-
+            updateWordStatus();
             app.endUndoGroup();
         };
 
         win.layout.layout(true);
+
         return win;
     }
 
     var myScriptPal = buildUI(thisObj);
+
     if (myScriptPal instanceof Window) myScriptPal.center(), myScriptPal.show();
 })(this);
