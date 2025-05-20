@@ -6,48 +6,65 @@
         var win =
             thisObj instanceof Panel ? thisObj : new Window("palette", scriptName, undefined, { resizeable: true });
 
+        // === UI Layout Rework ===
         win.orientation = "column";
-        win.alignChildren = "left";
-        var paddingGroup = win.add("group");
+        win.alignChildren = "fill";
+
+        var mainGroup = win.add("group");
+        mainGroup.orientation = "row";
+        mainGroup.alignChildren = "top";
+
+        // === Left Column: Workflow ===
+        var leftCol = mainGroup.add("group");
+        leftCol.orientation = "column";
+        leftCol.alignChildren = "left";
+
+        var paddingGroup = leftCol.add("group");
         paddingGroup.add("statictext", undefined, "Padding Frames:");
         var paddingInput = paddingGroup.add("edittext", undefined, "5");
         paddingInput.characters = 4;
 
-        // === Animator Properties Group ===
-        var animSettingsGroup = win.add("panel", undefined, "Animator Properties");
-        animSettingsGroup.orientation = "column";
-        animSettingsGroup.alignChildren = "left";
-
-        var useOpacity = animSettingsGroup.add("checkbox", undefined, "Opacity");
-        useOpacity.value = true;
-
-        var usePosition = animSettingsGroup.add("checkbox", undefined, "Position");
-        var posGroup = animSettingsGroup.add("group");
-        posGroup.add("statictext", undefined, "X:");
-        var posXInput = posGroup.add("edittext", undefined, "0");
-        posXInput.characters = 4;
-        posGroup.add("statictext", undefined, "Y:");
-        var posYInput = posGroup.add("edittext", undefined, "-100");
-        posYInput.characters = 4;
-
-        var useScale = animSettingsGroup.add("checkbox", undefined, "Scale");
-        var scaleInput = animSettingsGroup.add("edittext", undefined, "0"); // percent
-        scaleInput.characters = 4;
-
-        var useRotation = animSettingsGroup.add("checkbox", undefined, "Rotation");
-        var rotInput = animSettingsGroup.add("edittext", undefined, "-90"); // degrees
-        rotInput.characters = 4;
-        var fadeOutCheckbox = animSettingsGroup.add("checkbox", undefined, "Fade Out at End");
-        fadeOutCheckbox.value = true;
-        
-        
-
-        var lyricInputGroup = win.add("group");
+        var lyricInputGroup = leftCol.add("group");
         lyricInputGroup.orientation = "column";
+        lyricInputGroup.alignChildren = "left";
         lyricInputGroup.add("statictext", undefined, "Paste Full Lyrics (one line per line):");
         var lyricInput = lyricInputGroup.add("edittext", [0, 0, 400, 200], "", { multiline: true, scrollable: true });
 
-        var addMarkerBtn = win.add("button", undefined, "Add Marker");
+        var addMarkerBtn = leftCol.add("button", undefined, "Add Marker");
+        var generateBtn = leftCol.add("button", undefined, "Generate Text Layers from Markers");
+        var labelMarkersBtn = leftCol.add("button", undefined, "Preview With Marker Labels");
+
+        // === Right Column: Animator Settings ===
+        var rightCol = mainGroup.add("panel", undefined, "Animator Properties");
+        rightCol.orientation = "column";
+        rightCol.alignChildren = "left";
+
+        var useOpacity = rightCol.add("checkbox", undefined, "Opacity");
+        useOpacity.value = true;
+
+        var posRow = rightCol.add("group");
+        var usePosition = posRow.add("checkbox", undefined, "Position");
+        posRow.add("statictext", undefined, "X:");
+        var posXInput = posRow.add("edittext", undefined, "0");
+        posXInput.characters = 4;
+        posRow.add("statictext", undefined, "Y:");
+        var posYInput = posRow.add("edittext", undefined, "200");
+        posYInput.characters = 4;
+
+        var scaleRow = rightCol.add("group");
+        var useScale = scaleRow.add("checkbox", undefined, "Scale");
+        scaleRow.add("statictext", undefined, "%:");
+        var scaleInput = scaleRow.add("edittext", undefined, "0");
+        scaleInput.characters = 4;
+
+        var rotRow = rightCol.add("group");
+        var useRotation = rotRow.add("checkbox", undefined, "Rotation");
+        rotRow.add("statictext", undefined, "°:");
+        var rotInput = rotRow.add("edittext", undefined, "-90");
+        rotInput.characters = 4;
+
+        var fadeOutCheckbox = rightCol.add("checkbox", undefined, "Fade Out at End");
+        fadeOutCheckbox.value = true;
 
         addMarkerBtn.onClick = function () {
             var comp = app.project.activeItem;
@@ -59,9 +76,6 @@
             var time = comp.time;
             markers.setValueAtTime(time, new MarkerValue(""));
         };
-
-        var generateBtn = win.add("button", undefined, "Generate Text Layers from Markers");
-        var labelMarkersBtn = win.add("button", undefined, "Preview With Marker Labels");
 
         // --- MAIN LAYER GENERATION CODE ---
         generateBtn.onClick = function () {
