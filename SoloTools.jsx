@@ -66,6 +66,23 @@
         var fadeOutCheckbox = rightCol.add("checkbox", undefined, "Fade Out at End");
         fadeOutCheckbox.value = true;
 
+        // === Ease and Smoothness Settings ===
+        var smoothRow = rightCol.add("group");
+        smoothRow.add("statictext", undefined, "Smoothness:");
+        var smoothInput = smoothRow.add("edittext", undefined, "100");
+        smoothInput.characters = 4;
+
+        var easeHighRow = rightCol.add("group");
+        easeHighRow.add("statictext", undefined, "Ease High:");
+        var easeHighInput = easeHighRow.add("edittext", undefined, "50");
+        easeHighInput.characters = 4;
+
+        var easeLowRow = rightCol.add("group");
+        easeLowRow.add("statictext", undefined, "Ease Low:");
+        var easeLowInput = easeLowRow.add("edittext", undefined, "50");
+        easeLowInput.characters = 4;
+
+        // -- ADD MARKER BUTTON FUNCTIONALITY --
         addMarkerBtn.onClick = function () {
             var comp = app.project.activeItem;
             if (!comp || !(comp instanceof CompItem)) {
@@ -220,6 +237,10 @@
                 if (advanced) {
                     advanced.property("ADBE Text Range Type2").setValue(3); // Words
                     advanced.property("ADBE Text Range Units").setValue(2); // Index
+                    
+                    advanced.property("ADBE Text Selector Smoothness").setValue(parseFloat(smoothInput.text) || 0);
+                    advanced.property("ADBE Text Levels Max Ease").setValue(parseFloat(easeHighInput.text) || 0);
+                    advanced.property("ADBE Text Levels Min Ease").setValue(parseFloat(easeLowInput.text) || 0);
                 }
 
                 // Apply our keyframes based on markers, including padding
