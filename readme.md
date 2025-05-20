@@ -11,7 +11,7 @@ I'm adding features pretty constantly and randomly right now, so listing them al
 ## Instructions for use
 
 1. Press play and listen to your song playback in the comp (you can use the Preview window to lower the frame rate and slow it down for accuracy)
-2. Press the `\*` key on the numpad (or remap it to `.` if you're on a laptop or have a smaller keyboard) to place a marker at the start of each **word**. Not syllable, just words for now (I'll add syllable splitting...someday)
+2. Press the `*` key on the numpad (or remap it to `.` if you're on a laptop or have a smaller keyboard) to place a marker at the start of each **word**. Not syllable, just words for now (I'll add syllable splitting...someday)
 3. Run the script (File > Scripts > Run Script File) and paste in your lyrics. Each new line break is a new text layer.
 4. (Optional) Press "Preview With Marker Labels" to see how your lyrics line up. Adjust as needed and hit the "Preview" button again if you want to check.
 5. Change the animation settings at the top however you'd like, then press "Generate Text Layers From Markers"
