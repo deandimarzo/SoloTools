@@ -37,6 +37,10 @@
         var useRotation = animSettingsGroup.add("checkbox", undefined, "Rotation");
         var rotInput = animSettingsGroup.add("edittext", undefined, "-90"); // degrees
         rotInput.characters = 4;
+        var fadeOutCheckbox = animSettingsGroup.add("checkbox", undefined, "Fade Out at End");
+        fadeOutCheckbox.value = true;
+        
+        
 
         var lyricInputGroup = win.add("group");
         lyricInputGroup.orientation = "column";
@@ -62,7 +66,7 @@
         // --- MAIN LAYER GENERATION CODE ---
         generateBtn.onClick = function () {
             app.beginUndoGroup("Generate Synced Lyrics");
-            
+
             // Validate we have an active comp
             var comp = app.project.activeItem;
             if (!comp || !(comp instanceof CompItem)) {
@@ -152,7 +156,9 @@
                 var text = words.join(" ");
 
                 var layer = comp.layers.addText(text);
-                layer.startTime = entries[0].markerTime;
+                var paddingFrames = parseInt(paddingInput.text, 10) || 0;
+                var frameDuration = 1.0 / comp.frameRate;
+                layer.startTime = entries[0].markerTime - paddingFrames * frameDuration;
 
                 // Apply "Word"-based text anchor grouping
                 // Will later make this a dropdown option, but for now you're almost always gonna want Word anchoring anyway
@@ -167,7 +173,7 @@
                         }
                     }
                 }
-                
+
                 // Add the Animator
                 var animator = layer
                     .property("ADBE Text Properties")
@@ -204,19 +210,41 @@
 
                 // Apply our keyframes based on markers, including padding
                 var startProp = selector.property("ADBE Text Index Start");
+
+                if (entries.length > 0 && paddingFrames > 0) {
+                    var firstTime = entries[0].markerTime;
+                    var paddingTime = paddingFrames * frameDuration;
+                    var preTime = firstTime - paddingTime;
+
+                    var allowPreKey = true;
+
+                    // Check if there's a previous marker before this line starts
+                    var lineStartMarkerIndex = markers.nearestKeyIndex(firstTime);
+                    if (lineStartMarkerIndex > 1) {
+                        var prevMarkerTime = markers.keyTime(lineStartMarkerIndex - 1);
+                        if (firstTime - prevMarkerTime < paddingTime) {
+                            allowPreKey = false;
+                        }
+                    }
+
+                    if (allowPreKey && preTime >= 0) {
+                        startProp.setValueAtTime(preTime, 0);
+                        layer.startTime = preTime; // also shift layer start time
+                    } else {
+                        layer.startTime = firstTime;
+                    }
+                }
+
                 for (var w = 0; w < entries.length; w++) {
-                    var paddingFrames = parseInt(paddingInput.text, 10) || 0;
-                    var frameDuration = 1.0 / comp.frameRate;
-                 
                     for (var w = 0; w < entries.length; w++) {
                         var thisTime = entries[w].markerTime;
                         var prevTime = w > 0 ? entries[w - 1].markerTime : null;
-                   
+
                         // Only apply padding if enough time since previous keyframe
                         if (paddingFrames > 0 && prevTime !== null) {
                             var timeBetween = thisTime - prevTime;
                             var paddingTime = paddingFrames * frameDuration;
-                          
+
                             if (timeBetween > paddingTime) {
                                 startProp.setValueAtTime(thisTime - paddingTime, w);
                             }
@@ -225,9 +253,8 @@
                         // Always place actual keyframe at marker time
                         startProp.setValueAtTime(thisTime, w + 1);
                     }
-                    
+
                     startProp.setValueAtTime(thisTime, w + 1);
-                    
                 }
                 var nextLineIdx = parseInt(lineIdx) + 1;
                 if (lineMap.hasOwnProperty(nextLineIdx)) {
@@ -235,15 +262,14 @@
                 } else {
                     layer.outPoint = entries[entries.length - 1].markerTime + 2;
                 }
-                // Add fade-out to layer opacity
+
+                // Add fade-out to layer opacity if checkbox is checked
                 var opacityProp = layer.property("ADBE Transform Group").property("ADBE Opacity");
-                
-                if (opacityProp) {
+                if (fadeOutCheckbox.value && opacityProp) {
                     var fadeStart = layer.outPoint - 5 / comp.frameRate;
                     opacityProp.setValueAtTime(fadeStart, 100);
                     opacityProp.setValueAtTime(layer.outPoint, 0);
                 }
-
             }
 
             app.endUndoGroup();
@@ -257,7 +283,6 @@
                 alert("Please select an active composition.");
                 return;
             }
-
 
             var markers = comp.markerProperty;
             var totalMarkers = markers.numKeys;
