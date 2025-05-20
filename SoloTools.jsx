@@ -18,7 +18,7 @@
         lyricInputGroup.add("statictext", undefined, "Paste Full Lyrics (one line per line):");
         var lyricInput = lyricInputGroup.add("edittext", [0, 0, 400, 200], "", { multiline: true, scrollable: true });
 
-        var addMarkerBtn = win.add("button", undefined, "Add Marker at Current Time");
+        var addMarkerBtn = win.add("button", undefined, "Add Marker");
 
         addMarkerBtn.onClick = function () {
             var comp = app.project.activeItem;
@@ -31,7 +31,8 @@
             markers.setValueAtTime(time, new MarkerValue(""));
         };
 
-        var generateBtn = win.add("button", undefined, "Generate Synced Layers from Markers");
+        var generateBtn = win.add("button", undefined, "Generate Text Layers from Markers");
+        var labelMarkersBtn = win.add("button", undefined, "Preview With Marker Labels");
 
         generateBtn.onClick = function () {
             app.beginUndoGroup("Generate Synced Lyrics");
@@ -109,9 +110,9 @@
 
             // Generate one text layer per line
             for (var lineIdx in lineMap) {
-                alert("Generating " + lineIdx);
+                // alert("Generating " + lineIdx);
                 var entries = lineMap[lineIdx];
-                alert("Type of entries: " + Object.prototype.toString.call(entries));
+                // alert("Type of entries: " + Object.prototype.toString.call(entries));
 
                 var words = [];
                 for (var i = 0; i < entries.length; i++) {
@@ -175,6 +176,56 @@
 
                 //selector.property("ADBE Text Selector End").setValue(0);
                 //selector.property("ADBE Text Selector Offset").setValue(0);
+            }
+
+            app.endUndoGroup();
+        };
+
+        labelMarkersBtn.onClick = function () {
+            app.beginUndoGroup("Label Markers with Words");
+
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                alert("Please select an active composition.");
+                return;
+            }
+            
+            // alert("Comp acquired");
+
+            var markers = comp.markerProperty;
+            var totalMarkers = markers.numKeys;
+
+            if (totalMarkers === 0) {
+                alert("No comp markers found. Please place one marker per word.");
+                return;
+            }
+
+            var rawText = lyricInput.text;
+            var lines = rawText.split(/\r?\n/);
+            var flatWords = [];
+
+            for (var i = 0; i < lines.length; i++) {
+                var lineText = lines[i];
+                if (!lineText || typeof lineText !== "string") continue;
+
+                var lineWords = lineText.split(/\s+/);
+                for (var j = 0; j < lineWords.length; j++) {
+                    flatWords.push(lineWords[j]);
+                }
+            }
+
+            var count = Math.min(totalMarkers, flatWords.length);
+            for (var i = 0; i < count; i++) {
+                var time = markers.keyTime(i + 1);
+                var word = flatWords[i];
+                var marker = new MarkerValue(word);
+                markers.setValueAtTime(time, marker);
+            }
+
+            if (flatWords.length < totalMarkers) {
+                alert("Fewer words than markers. Remaining markers will be unchanged.");
+            } else if (flatWords.length > totalMarkers) {
+                alert("Not enough markers for all words. Only the first " + totalMarkers + " words were used.");
             }
 
             app.endUndoGroup();
