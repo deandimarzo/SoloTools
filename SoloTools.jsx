@@ -59,18 +59,18 @@
         var generateBtn = win.add("button", undefined, "Generate Text Layers from Markers");
         var labelMarkersBtn = win.add("button", undefined, "Preview With Marker Labels");
 
+        // --- MAIN LAYER GENERATION CODE ---
         generateBtn.onClick = function () {
             app.beginUndoGroup("Generate Synced Lyrics");
-            // alert("Generating synced lyrics");
-
+            
+            // Validate we have an active comp
             var comp = app.project.activeItem;
             if (!comp || !(comp instanceof CompItem)) {
                 alert("Please select an active composition.");
                 return;
             }
 
-            // alert("Composition active.");
-
+            // Make sure we have some markers
             var markers = comp.markerProperty;
             var totalMarkers = markers.numKeys;
             if (totalMarkers === 0) {
@@ -78,6 +78,7 @@
                 return;
             }
 
+            // Split the text into lines
             var rawText = lyricInput.text;
             var lines = rawText.split(/\r?\n/);
             var words = [];
@@ -91,6 +92,7 @@
                 }
             }
 
+            // Split the lines into words
             var flatWords = [];
             for (var i = 0; i < words.length; i++) {
                 for (var j = 0; j < words[i].words.length; j++) {
@@ -102,6 +104,7 @@
                 }
             }
 
+            // Compare words to markers and complain a lot if they don't match
             if (flatWords.length > totalMarkers) {
                 alert(
                     "Not enough markers for all words. Found " +
@@ -135,9 +138,7 @@
 
             // Generate one text layer per line
             for (var lineIdx in lineMap) {
-                // alert("Generating " + lineIdx);
                 var entries = lineMap[lineIdx];
-                // alert("Type of entries: " + Object.prototype.toString.call(entries));
 
                 var words = [];
                 for (var i = 0; i < entries.length; i++) {
@@ -153,6 +154,8 @@
                 var layer = comp.layers.addText(text);
                 layer.startTime = entries[0].markerTime;
 
+                // Apply "Word"-based text anchor grouping
+                // Will later make this a dropdown option, but for now you're almost always gonna want Word anchoring anyway
                 var moreOptions = layer.property("ADBE Text Properties").property("ADBE Text More Options");
                 if (moreOptions) {
                     var anchorPointGrouping = moreOptions.property("ADBE Text Anchor Point Option");
@@ -164,7 +167,8 @@
                         }
                     }
                 }
-
+                
+                // Add the Animator
                 var animator = layer
                     .property("ADBE Text Properties")
                     .property("ADBE Text Animators")
@@ -173,6 +177,7 @@
 
                 var animProps = animator.property("ADBE Text Animator Properties");
 
+                // Apply our chosen properties
                 if (useOpacity.value) {
                     animProps.addProperty("ADBE Text Opacity").setValue(0);
                 }
@@ -189,16 +194,16 @@
                     animProps.addProperty("ADBE Text Rotation").setValue(parseFloat(rotInput.text) || 0);
                 }
 
+                // Add a standard Range Selector, using Index/Words functionality instead of the default Percent/Characters
                 var selector = animator.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
-
                 var advanced = selector.property("ADBE Text Range Advanced");
                 if (advanced) {
                     advanced.property("ADBE Text Range Type2").setValue(3); // Words
                     advanced.property("ADBE Text Range Units").setValue(2); // Index
                 }
 
+                // Apply our keyframes based on markers, including padding
                 var startProp = selector.property("ADBE Text Index Start");
-
                 for (var w = 0; w < entries.length; w++) {
                     var paddingFrames = parseInt(paddingInput.text, 10) || 0;
                     var frameDuration = 1.0 / comp.frameRate;
@@ -227,7 +232,6 @@
                 var nextLineIdx = parseInt(lineIdx) + 1;
                 if (lineMap.hasOwnProperty(nextLineIdx)) {
                     layer.outPoint = lineMap[nextLineIdx][0].markerTime;
-                    //  alert("Out point set");
                 } else {
                     layer.outPoint = entries[entries.length - 1].markerTime + 2;
                 }
@@ -235,16 +239,11 @@
                 var opacityProp = layer.property("ADBE Transform Group").property("ADBE Opacity");
                 
                 if (opacityProp) {
-                    //  alert("Opacity acquired");
                     var fadeStart = layer.outPoint - 5 / comp.frameRate;
-                    //   alert("fadeStart set at " + fadeStart);
                     opacityProp.setValueAtTime(fadeStart, 100);
                     opacityProp.setValueAtTime(layer.outPoint, 0);
                 }
-                //  alert("Keyframes entered");
 
-                //selector.property("ADBE Text Selector End").setValue(0);
-                //selector.property("ADBE Text Selector Offset").setValue(0);
             }
 
             app.endUndoGroup();
@@ -259,7 +258,6 @@
                 return;
             }
 
-            // alert("Comp acquired");
 
             var markers = comp.markerProperty;
             var totalMarkers = markers.numKeys;
