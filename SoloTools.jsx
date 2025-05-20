@@ -113,6 +113,41 @@
             adjGroup.visible = adjToggle.value;
             adjToggle.text = adjToggle.value ? "▼ Adjustment Layer Tools" : "▶ Adjustment Layer Tools";
         };
+        var transStylePanel = adjGroup.add("panel", undefined, "Transition Styles");
+        transStylePanel.orientation = "column";
+        transStylePanel.alignChildren = "left";
+
+        var zoomCheckbox = transStylePanel.add("checkbox", undefined, "Zoom (Scale)");
+        zoomCheckbox.value = true;
+
+        var rotationCheckbox = transStylePanel.add("checkbox", undefined, "Rotation");
+        rotationCheckbox.value = false;
+
+        var positionCheckbox = transStylePanel.add("checkbox", undefined, "Position");
+        positionCheckbox.value = false;
+
+        var posDirGroup = transStylePanel.add("group");
+        posDirGroup.add("statictext", undefined, "Direction:");
+        var posDirDropdown = posDirGroup.add("dropdownlist", undefined, ["Up", "Down", "Left", "Right"]);
+        posDirDropdown.selection = 0;
+
+        // --- Zoom Amount ---
+        var zoomAmtGroup = transStylePanel.add("group");
+        zoomAmtGroup.add("statictext", undefined, "Zoom Amt:");
+        var zoomAmtInput = zoomAmtGroup.add("edittext", undefined, "100");
+        zoomAmtInput.characters = 4;
+
+        // --- Rotation Amount ---
+        var rotAmtGroup = transStylePanel.add("group");
+        rotAmtGroup.add("statictext", undefined, "Rotation Amt:");
+        var rotAmtInput = rotAmtGroup.add("edittext", undefined, "30");
+        rotAmtInput.characters = 4;
+
+        // --- Position Amount ---
+        var posAmtGroup = transStylePanel.add("group");
+        posAmtGroup.add("statictext", undefined, "Position Amt:");
+        var posAmtInput = posAmtGroup.add("edittext", undefined, "100");
+        posAmtInput.characters = 4;
 
         var transitionBtn = adjGroup.add("button", undefined, "Create Transition Effect");
 
@@ -469,35 +504,91 @@
             var scaleProp = transform("Scale Height"); // Only need one when uniform is enabled
 
             var frameDuration = 1 / comp.frameRate;
+            var zoomAmt = parseFloat(zoomAmtInput.text) || 100;
+            var rotAmt = parseFloat(rotAmtInput.text) || 30;
+            var posAmt = parseFloat(posAmtInput.text) || 100;
 
-            // Key times
+            var frameDuration = 1 / comp.frameRate;
             var t1 = inTime;
             var t2 = transitionTime - frameDuration;
             var t3 = transitionTime;
             var t4 = outTime;
-            // Set keyframes (single-value)
-            scaleProp.setValueAtTime(t1, 100);
-            scaleProp.setValueAtTime(t2, 200);
-            scaleProp.setValueAtTime(t3, 50);
-            scaleProp.setValueAtTime(t4, 100);
 
-            // Set interpolation and velocities
-            var KeyframeBezier = KeyframeInterpolationType.BEZIER;
+            if (zoomCheckbox.value) {
+                transform("Uniform Scale").setValue(true);
+                var scaleProp = transform("Scale Height");
 
-            // Set interpolation for all keys
-            for (var i = 1; i <= 4; i++) {
-                scaleProp.setInterpolationTypeAtKey(
-                    i,
-                    KeyframeInterpolationType.BEZIER,
-                    KeyframeInterpolationType.BEZIER
-                );
+                scaleProp.setValueAtTime(t1, 100);
+                scaleProp.setValueAtTime(t2, 100 + zoomAmt);
+                scaleProp.setValueAtTime(t3, Math.max(100 - zoomAmt, 10));
+                scaleProp.setValueAtTime(t4, 100);
+
+                for (var i = 1; i <= 4; i++) {
+                    scaleProp.setInterpolationTypeAtKey(
+                        i,
+                        KeyframeInterpolationType.BEZIER,
+                        KeyframeInterpolationType.BEZIER
+                    );
+                }
+
+                scaleProp.setTemporalEaseAtKey(1, [new KeyframeEase(0, 33)], [new KeyframeEase(0, 100)]);
+                scaleProp.setTemporalEaseAtKey(2, [new KeyframeEase(0, 1)], [new KeyframeEase(0, 1)]);
+                scaleProp.setTemporalEaseAtKey(3, [new KeyframeEase(0, 1)], [new KeyframeEase(0, 1)]);
+                scaleProp.setTemporalEaseAtKey(4, [new KeyframeEase(0, 100)], [new KeyframeEase(0, 33)]);
             }
 
-            // Set easing
-            scaleProp.setTemporalEaseAtKey(1, [new KeyframeEase(0, 33)], [new KeyframeEase(0, 100)]); // only out
-            scaleProp.setTemporalEaseAtKey(2, [new KeyframeEase(0, 1)], [new KeyframeEase(0, 1)]);
-            scaleProp.setTemporalEaseAtKey(3, [new KeyframeEase(0,1)], [new KeyframeEase(0,1)]);
-            scaleProp.setTemporalEaseAtKey(4, [new KeyframeEase(0,100)], [new KeyframeEase(0, 33)]); // only in
+            if (rotationCheckbox.value) {
+                var rotProp = transform("Rotation");
+                rotProp.setValueAtTime(t1, 0);
+                rotProp.setValueAtTime(t2, rotAmt);
+                rotProp.setValueAtTime(t3, -rotAmt);
+                rotProp.setValueAtTime(t4, 0);
+
+                for (var i = 1; i <= 4; i++) {
+                    rotProp.setInterpolationTypeAtKey(
+                        i,
+                        KeyframeInterpolationType.BEZIER,
+                        KeyframeInterpolationType.BEZIER
+                    );
+                }
+
+                rotProp.setTemporalEaseAtKey(1, [new KeyframeEase(0, 33)], [new KeyframeEase(0, 100)]);
+                rotProp.setTemporalEaseAtKey(2, [new KeyframeEase(0, 1)], [new KeyframeEase(0, 1)]);
+                rotProp.setTemporalEaseAtKey(3, [new KeyframeEase(0, 1)], [new KeyframeEase(0, 1)]);
+                rotProp.setTemporalEaseAtKey(4, [new KeyframeEase(0, 100)], [new KeyframeEase(0, 33)]);
+            }
+
+            if (positionCheckbox.value) {
+                var dir = posDirDropdown.selection.text;
+                var dx = 0,
+                    dy = 0;
+                if (dir === "Up") dy = -posAmt;
+                if (dir === "Down") dy = posAmt;
+                if (dir === "Left") dx = -posAmt;
+                if (dir === "Right") dx = posAmt;
+
+                var center = [comp.width / 2, comp.height / 2];
+                var posProp = transform("Position");
+
+                posProp.setValueAtTime(t1, center);
+                posProp.setValueAtTime(t2, [center[0] + dx, center[1] + dy]);
+                posProp.setValueAtTime(t3, [center[0] - dx, center[1] - dy]);
+                posProp.setValueAtTime(t4, center);
+
+                for (var i = 1; i <= 4; i++) {
+                    posProp.setInterpolationTypeAtKey(
+                        i,
+                        KeyframeInterpolationType.BEZIER,
+                        KeyframeInterpolationType.BEZIER
+                    );
+                }
+
+                posProp.setTemporalEaseAtKey(1, [new KeyframeEase(0, 33)], [new KeyframeEase(0, 100)]);
+                posProp.setTemporalEaseAtKey(2, [new KeyframeEase(0, 1)], [new KeyframeEase(0, 1)]);
+                posProp.setTemporalEaseAtKey(3, [new KeyframeEase(0, 1)], [new KeyframeEase(0, 1)]);
+                posProp.setTemporalEaseAtKey(4, [new KeyframeEase(0, 100)], [new KeyframeEase(0, 33)]);
+            }
+
             app.endUndoGroup();
         };
 
