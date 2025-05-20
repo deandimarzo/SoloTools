@@ -10,9 +10,18 @@
         win.orientation = "column";
         win.alignChildren = "fill";
 
+        var lyricToggle = win.add("checkbox", undefined, "▼ Generate Lyric Layers");
+        lyricToggle.value = true;
+
         var mainGroup = win.add("group");
         mainGroup.orientation = "row";
         mainGroup.alignChildren = "top";
+        mainGroup.visible = lyricToggle.value;
+
+        lyricToggle.onClick = function () {
+            mainGroup.visible = lyricToggle.value;
+            lyricToggle.text = lyricToggle.value ? "▼ Generate Lyric Layers" : "▶ Generate Lyric Layers";
+        };
 
         // === Left Column: Workflow ===
         var leftCol = mainGroup.add("group");
@@ -90,6 +99,22 @@
         easeLowRow.add("statictext", undefined, "Ease Low:");
         var easeLowInput = easeLowRow.add("edittext", undefined, "50");
         easeLowInput.characters = 4;
+
+        // ADJUSTMENT LAYER SETTINGS
+        var adjToggle = win.add("checkbox", undefined, "▼ Adjustment Layer Tools");
+        adjToggle.value = true;
+
+        var adjGroup = win.add("group");
+        adjGroup.orientation = "column";
+        adjGroup.alignChildren = "left";
+        adjGroup.visible = adjToggle.value;
+
+        adjToggle.onClick = function () {
+            adjGroup.visible = adjToggle.value;
+            adjToggle.text = adjToggle.value ? "▼ Adjustment Layer Tools" : "▶ Adjustment Layer Tools";
+        };
+
+        var transitionBtn = adjGroup.add("button", undefined, "Create Transition Effect");
 
         // -- ADD MARKER BUTTON FUNCTIONALITY --
         addMarkerBtn.onClick = function () {
@@ -401,6 +426,78 @@
                 alert("Not enough markers for all words. Only the first " + totalMarkers + " words were used.");
             }
             updateWordStatus();
+            app.endUndoGroup();
+        };
+
+        transitionBtn.onClick = function () {
+            app.beginUndoGroup("Create Transition Adjustment Layer");
+
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                alert("Please select an active composition.");
+                return;
+            }
+
+            var markers = comp.markerProperty;
+            if (markers.numKeys !== 3) {
+                alert("Please place exactly 3 markers: In, Transition, Out.");
+                return;
+            }
+
+            var inTime = markers.keyTime(1);
+            var transitionTime = markers.keyTime(2);
+            var outTime = markers.keyTime(3);
+
+            // Create adjustment layer
+            var layer = comp.layers.addSolid([1, 1, 1], "Transition FX", comp.width, comp.height, 1);
+            layer.adjustmentLayer = true;
+            layer.startTime = inTime;
+            layer.outPoint = outTime;
+
+            // Add Motion Tile
+            var motionTile = layer.property("Effects").addProperty("ADBE Tile");
+            motionTile("Output Width").setValue(200);
+            motionTile("Output Height").setValue(200);
+            motionTile("Mirror Edges").setValue(1);
+
+            // Add Transform
+            var transform = layer.property("Effects").addProperty("ADBE Geometry");
+
+            var msg = "ADBE Geometry Properties:\n";
+
+            transform("Uniform Scale").setValue(true); // Turn on uniform scaling
+            var scaleProp = transform("Scale Height"); // Only need one when uniform is enabled
+
+            var frameDuration = 1 / comp.frameRate;
+
+            // Key times
+            var t1 = inTime;
+            var t2 = transitionTime - frameDuration;
+            var t3 = transitionTime;
+            var t4 = outTime;
+            // Set keyframes (single-value)
+            scaleProp.setValueAtTime(t1, 100);
+            scaleProp.setValueAtTime(t2, 200);
+            scaleProp.setValueAtTime(t3, 50);
+            scaleProp.setValueAtTime(t4, 100);
+
+            // Set interpolation and velocities
+            var KeyframeBezier = KeyframeInterpolationType.BEZIER;
+
+            // Set interpolation for all keys
+            for (var i = 1; i <= 4; i++) {
+                scaleProp.setInterpolationTypeAtKey(
+                    i,
+                    KeyframeInterpolationType.BEZIER,
+                    KeyframeInterpolationType.BEZIER
+                );
+            }
+
+            // Set easing
+            scaleProp.setTemporalEaseAtKey(1, [new KeyframeEase(0, 33)], [new KeyframeEase(0, 100)]); // only out
+            scaleProp.setTemporalEaseAtKey(2, [new KeyframeEase(0, 1)], [new KeyframeEase(0, 1)]);
+            scaleProp.setTemporalEaseAtKey(3, [new KeyframeEase(0,1)], [new KeyframeEase(0,1)]);
+            scaleProp.setTemporalEaseAtKey(4, [new KeyframeEase(0,100)], [new KeyframeEase(0, 33)]); // only in
             app.endUndoGroup();
         };
 
