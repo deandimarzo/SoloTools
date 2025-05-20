@@ -151,6 +151,8 @@
 
         var transitionBtn = adjGroup.add("button", undefined, "Create Transition Effect");
 
+        var bounceBtn = adjGroup.add("button", undefined, "Auto-Kick Bounce Layer");
+
         // -- ADD MARKER BUTTON FUNCTIONALITY --
         addMarkerBtn.onClick = function () {
             var comp = app.project.activeItem;
@@ -588,6 +590,88 @@
                 posProp.setTemporalEaseAtKey(3, [new KeyframeEase(0, 1)], [new KeyframeEase(0, 1)]);
                 posProp.setTemporalEaseAtKey(4, [new KeyframeEase(0, 100)], [new KeyframeEase(0, 33)]);
             }
+
+            app.endUndoGroup();
+        };
+
+        bounceBtn.onClick = function () {
+            app.beginUndoGroup("Create Auto Bounce Layer");
+
+            var comp = app.project.activeItem;
+            if (!comp || !(comp instanceof CompItem)) {
+                alert("Please select an active composition.");
+                return;
+            }
+
+            // Prompt user to select audio layer
+            var audioLayer = comp.selectedLayers[0];
+            if (!audioLayer || !audioLayer.hasAudio) {
+                alert("Please select a kick-drum audio layer first.");
+                return;
+            }
+
+            // Keep track of all layers' mute states
+            var audioMuteStates = [];
+            for (var i = 1; i <= comp.numLayers; i++) {
+                var layer = comp.layer(i);
+                audioMuteStates.push({ layer: layer, wasAudio: layer.audioEnabled });
+                if (layer !== audioLayer && layer.hasAudio) {
+                    layer.audioEnabled = false;
+                }
+            }
+
+            // Apply 'Convert Audio to Keyframes'
+            var convertCmd = app.findMenuCommandId("Convert Audio to Keyframes");
+            if (!convertCmd) {
+                alert("Could not find 'Convert Audio to Keyframes' command.");
+                return;
+            }
+            app.executeCommand(convertCmd);
+
+            // Wait a tick, then find the 'Audio Amplitude' layer
+            var ampLayer;
+            for (var i = 1; i <= comp.numLayers; i++) {
+                var l = comp.layer(i);
+                if (l.name.indexOf("Audio Amplitude") === 0) {
+                    ampLayer = l;
+                    break;
+                }
+            }
+
+            if (!ampLayer) {
+                alert("Could not find generated 'Audio Amplitude' layer.");
+                return;
+            }
+
+            // Restore original audio mute states
+            for (var i = 0; i < audioMuteStates.length; i++) {
+                audioMuteStates[i].layer.audioEnabled = audioMuteStates[i].wasAudio;
+            }
+
+            var slider = ampLayer.effect("Both Channels")("Slider");
+
+            // Find the max value from keyframes
+            var maxVal = 0;
+            for (var i = 1; i <= slider.numKeys; i++) {
+                var v = slider.keyValue(i);
+                if (v > maxVal) maxVal = v;
+            }
+            if (maxVal === 0) maxVal = 1; // prevent divide-by-zero
+
+            // Create adjustment layer
+            var bounceLayer = comp.layers.addSolid([1, 1, 1], "Auto Bounce", comp.width, comp.height, 1);
+            bounceLayer.adjustmentLayer = true;
+
+            // Add Transform effect
+            var transform = bounceLayer.property("Effects").addProperty("ADBE Geometry");
+            transform("Uniform Scale").setValue(true);
+
+            // Add expression to Scale Height
+            var scale = transform("Scale Height");
+            scale.expression =
+                'linear(thisComp.layer("Audio Amplitude").effect("Both Channels")("Slider"), 0, ' +
+                maxVal +
+                ", 100, 102)";
 
             app.endUndoGroup();
         };
