@@ -13,6 +13,31 @@
         var paddingInput = paddingGroup.add("edittext", undefined, "5");
         paddingInput.characters = 4;
 
+        // === Animator Properties Group ===
+        var animSettingsGroup = win.add("panel", undefined, "Animator Properties");
+        animSettingsGroup.orientation = "column";
+        animSettingsGroup.alignChildren = "left";
+
+        var useOpacity = animSettingsGroup.add("checkbox", undefined, "Opacity");
+        useOpacity.value = true;
+
+        var usePosition = animSettingsGroup.add("checkbox", undefined, "Position");
+        var posGroup = animSettingsGroup.add("group");
+        posGroup.add("statictext", undefined, "X:");
+        var posXInput = posGroup.add("edittext", undefined, "0");
+        posXInput.characters = 4;
+        posGroup.add("statictext", undefined, "Y:");
+        var posYInput = posGroup.add("edittext", undefined, "-100");
+        posYInput.characters = 4;
+
+        var useScale = animSettingsGroup.add("checkbox", undefined, "Scale");
+        var scaleInput = animSettingsGroup.add("edittext", undefined, "0"); // percent
+        scaleInput.characters = 4;
+
+        var useRotation = animSettingsGroup.add("checkbox", undefined, "Rotation");
+        var rotInput = animSettingsGroup.add("edittext", undefined, "-90"); // degrees
+        rotInput.characters = 4;
+
         var lyricInputGroup = win.add("group");
         lyricInputGroup.orientation = "column";
         lyricInputGroup.add("statictext", undefined, "Paste Full Lyrics (one line per line):");
@@ -128,13 +153,42 @@
                 var layer = comp.layers.addText(text);
                 layer.startTime = entries[0].markerTime;
 
+                var moreOptions = layer.property("ADBE Text Properties").property("ADBE Text More Options");
+                if (moreOptions) {
+                    var anchorPointGrouping = moreOptions.property("ADBE Text Anchor Point Option");
+                    if (anchorPointGrouping) {
+                        try {
+                            anchorPointGrouping.setValue(2); // 0 = Character, 1 = Word, 2 = Line, 3 = All
+                        } catch (err) {
+                            alert("Failed to set Anchor Point Grouping:\n" + err.toString());
+                        }
+                    }
+                }
+
                 var animator = layer
                     .property("ADBE Text Properties")
                     .property("ADBE Text Animators")
                     .addProperty("ADBE Text Animator");
                 animator.name = "AutoSync";
 
-                animator.property("ADBE Text Animator Properties").addProperty("ADBE Text Opacity").setValue(0);
+                var animProps = animator.property("ADBE Text Animator Properties");
+
+                if (useOpacity.value) {
+                    animProps.addProperty("ADBE Text Opacity").setValue(0);
+                }
+                if (usePosition.value) {
+                    animProps
+                        .addProperty("ADBE Text Position 3D")
+                        .setValue([parseFloat(posXInput.text) || 0, parseFloat(posYInput.text) || 0]);
+                }
+                if (useScale.value) {
+                    var scaleVal = parseFloat(scaleInput.text) || 0;
+                    animProps.addProperty("ADBE Text Scale 3D").setValue([scaleVal, scaleVal]);
+                }
+                if (useRotation.value) {
+                    animProps.addProperty("ADBE Text Rotation").setValue(parseFloat(rotInput.text) || 0);
+                }
+
                 var selector = animator.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
 
                 var advanced = selector.property("ADBE Text Range Advanced");
@@ -148,12 +202,27 @@
                 for (var w = 0; w < entries.length; w++) {
                     var paddingFrames = parseInt(paddingInput.text, 10) || 0;
                     var frameDuration = 1.0 / comp.frameRate;
+                 
+                    for (var w = 0; w < entries.length; w++) {
+                        var thisTime = entries[w].markerTime;
+                        var prevTime = w > 0 ? entries[w - 1].markerTime : null;
+                   
+                        // Only apply padding if enough time since previous keyframe
+                        if (paddingFrames > 0 && prevTime !== null) {
+                            var timeBetween = thisTime - prevTime;
+                            var paddingTime = paddingFrames * frameDuration;
+                          
+                            if (timeBetween > paddingTime) {
+                                startProp.setValueAtTime(thisTime - paddingTime, w);
+                            }
+                        }
 
-                    if (paddingFrames > 0 && w > 0) {
-                        startProp.setValueAtTime(entries[w].markerTime - paddingFrames * frameDuration, w);
+                        // Always place actual keyframe at marker time
+                        startProp.setValueAtTime(thisTime, w + 1);
                     }
-                    var t = entries[w].markerTime;
-                    startProp.setValueAtTime(t, w + 1);
+                    
+                    startProp.setValueAtTime(thisTime, w + 1);
+                    
                 }
                 var nextLineIdx = parseInt(lineIdx) + 1;
                 if (lineMap.hasOwnProperty(nextLineIdx)) {
@@ -164,7 +233,7 @@
                 }
                 // Add fade-out to layer opacity
                 var opacityProp = layer.property("ADBE Transform Group").property("ADBE Opacity");
-
+                
                 if (opacityProp) {
                     //  alert("Opacity acquired");
                     var fadeStart = layer.outPoint - 5 / comp.frameRate;
@@ -189,7 +258,7 @@
                 alert("Please select an active composition.");
                 return;
             }
-            
+
             // alert("Comp acquired");
 
             var markers = comp.markerProperty;
